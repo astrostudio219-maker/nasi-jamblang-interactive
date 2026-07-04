@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import UnitSimulationPanel, { UnitMediaShowcase } from "@/components/UnitSimulationPanel";
 
 const Learn = () => {
   const { lang } = useLanguage();
@@ -66,16 +67,7 @@ const Learn = () => {
                 </p>
               </div>
               
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 1" : "Unit 1 Photo / Video Slot"}</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">{isId ? "Komponen visual akan ditampilkan di sini" : "Visual components will be displayed here"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={1} isId={isId} />
 
               {isId ? <>
                 <p>Nasi Jamblang adalah hidangan nasi tradisional yang berasal dari Cirebon, Jawa Barat. Yang membuatnya unik adalah cara penyajiannya — nasi dibungkus dengan daun jati (<em>Tectona grandis</em>).</p>
@@ -105,15 +97,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 2" : "Unit 2 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={2} isId={isId} />
 
               {isId ? <>
                 <p>Terasi adalah produk fermentasi tradisional Indonesia yang banyak digunakan sebagai penyedap. Di Cirebon, terasi dibuat dari udang rebon yang ditangkap dari ekosistem laut pesisir.</p>
@@ -145,15 +129,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 3" : "Unit 3 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={3} isId={isId} />
 
               {isId ? <>
                 <p>Empal Gentong adalah makanan tradisional khas Cirebon yang dimasak menggunakan gentong tanah liat yang terbuat dari bahan alami. Tanah liat merupakan sumber daya alam yang ramah lingkungan karena dapat kembali ke alam tanpa menghasilkan limbah berbahaya.</p>
@@ -185,15 +161,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 4" : "Unit 4 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={4} isId={isId} />
 
               {isId ? <>
                 <p>Kerupuk Melarat adalah kerupuk tradisional yang dimasak menggunakan pasir panas, bukan minyak. Pasir berfungsi sebagai media penghantar panas dan dapat digunakan kembali berkali-kali, sementara penggorengan dengan minyak biasanya menyebabkan penyerapan minyak yang lebih tinggi pada makanan.</p>
@@ -225,15 +193,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 5" : "Unit 5 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={5} isId={isId} />
 
               {isId ? <>
                 <p>Tape ketan adalah produk tradisional hasil fermentasi beras ketan. Mikroorganisme dalam ragi menguraikan pati menjadi gula, kemudian mengubah sebagian gula tersebut menjadi alkohol, asam, dan senyawa aroma.</p>
@@ -263,15 +223,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 6" : "Unit 6 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={6} isId={isId} />
 
               {isId ? <>
                 <p>Di wilayah pesisir Cirebon, beberapa masyarakat melaporkan bahwa abrasi pantai menjadi semakin parah. Tambak ikan, jalan pesisir, dan beberapa rumah semakin terdampak oleh gelombang dan banjir.</p>
@@ -303,15 +255,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 7" : "Unit 7 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={7} isId={isId} />
 
               {isId ? <>
                 <p>Nadran adalah ritual tradisional yang dipraktikkan oleh masyarakat pesisir di Cirebon sebagai ungkapan rasa syukur atas sumber daya laut yang melimpah dan doa untuk keselamatan para nelayan saat melaut.</p>
@@ -341,15 +285,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 8" : "Unit 8 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={8} isId={isId} />
 
               {isId ? <>
                 <p>Di Cirebon, rotan digunakan untuk membuat furnitur dan kerajinan tangan. Rotan merupakan hasil hutan bukan kayu, yang berarti diambil dari ekosistem hutan tanpa menebang pohon secara langsung.</p>
@@ -379,15 +315,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 9" : "Unit 9 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={9} isId={isId} />
 
               {isId ? <>
                 <p>Batik Trusmi adalah salah satu industri batik tradisional yang paling terkenal di Cirebon. Produksi batik penting bagi budaya lokal dan menyediakan lapangan kerja serta pendapatan bagi masyarakat.</p>
@@ -419,15 +347,7 @@ const Learn = () => {
                 </p>
               </div>
 
-              {/* UNIT MEDIA SLOT */}
-              <div className="relative group rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-video flex items-center justify-center my-6 shadow-sm transition-all hover:border-primary/30">
-                <div className="text-center p-6">
-                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mx-auto mb-3 text-muted-foreground/40">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                  </div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{isId ? "Slot Foto / Video Unit 10" : "Unit 10 Photo / Video Slot"}</p>
-                </div>
-              </div>
+              <UnitMediaShowcase unit={10} isId={isId} />
 
               {isId ? <>
                 <p>Tahu gejrot adalah makanan tradisional khas Cirebon yang terbuat dari tahu goreng yang disajikan dengan kuah yang terdiri dari gula merah, cuka, bawang merah, bawang putih, dan cabai. Makanan ini biasanya disajikan dalam porsi kecil dengan menggunakan bahan-bahan lokal yang sederhana.</p>
@@ -448,6 +368,8 @@ const Learn = () => {
         {/* Right panel: tables */}
         <div className="w-[380px] shrink-0 overflow-y-auto exam-scrollbar px-6 py-8 bg-muted/20">
           <div>
+            <UnitSimulationPanel unit={selectedUnit} isId={isId} />
+
             <h2 className="text-[13px] font-bold uppercase tracking-wide text-foreground mb-4">
               {selectedUnit === 1 ? (isId ? "Perbandingan Kemasan" : "Packaging Comparison")
                : selectedUnit === 2 ? (isId ? "Perubahan Fermentasi" : "Fermentation Changes")
