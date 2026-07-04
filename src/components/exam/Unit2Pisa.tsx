@@ -5,9 +5,11 @@ import { saveCompletedSession } from "@/hooks/useExamSession";
 interface Unit2PisaProps { onExit?: () => void; studentId?: string; }
 
 type Level = "Low" | "Medium" | "High";
+type SimulationConfig = { salt: number; drying: number; hygiene: number; temp: number };
 
 const STEP_LABELS_EN = ["Introduction", "Question 1", "Question 2"];
 const STEP_LABELS_ID = ["Pendahuluan", "Soal 1", "Soal 2"];
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 // Correct option index for the multiple-choice question (contamination risk increases)
 const Q1_CORRECT = 1;
@@ -24,6 +26,7 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
   const [temp, setTemp] = useState(30);         // Suhu Fermentasi (°C)
   const [ran, setRan] = useState(false);
   const [history, setHistory] = useState<Record<string, string | number>[]>([]);
+  const [lastRunConfig, setLastRunConfig] = useState<SimulationConfig | null>(null);
 
   // Answers
   const [q1Choice, setQ1Choice] = useState<string>("");
@@ -34,8 +37,8 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
 
   // ── AUTO-SAVE ──
   React.useEffect(() => {
-    localStorage.setItem("unit2_autosave", JSON.stringify({ currentStep, salt, drying, hygiene, temp, ran, history, q1Choice, q2Answer }));
-  }, [currentStep, salt, drying, hygiene, temp, ran, history, q1Choice, q2Answer]);
+    localStorage.setItem("unit2_autosave", JSON.stringify({ currentStep, salt, drying, hygiene, temp, ran, history, q1Choice, q2Answer, lastRunConfig }));
+  }, [currentStep, salt, drying, hygiene, temp, ran, history, q1Choice, q2Answer, lastRunConfig]);
 
   React.useEffect(() => {
     const saved = localStorage.getItem("unit2_autosave");
@@ -51,6 +54,7 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
         if (d.history !== undefined) setHistory(d.history);
         if (d.q1Choice !== undefined) setQ1Choice(d.q1Choice);
         if (d.q2Answer !== undefined) setQ2Answer(d.q2Answer);
+        if (d.lastRunConfig !== undefined) setLastRunConfig(d.lastRunConfig);
       } catch (e) { console.error("unit2 autosave load failed", e); }
     }
   }, []);
@@ -86,14 +90,87 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
     return { risk, quality, riskLevel, qualityLevel, activity };
   }, [salt, drying, hygiene, temp]);
 
+  const liveMetrics = useMemo(() => {
+    const moisture = clamp(Math.round(82 - drying * 9 - salt * 0.18 + (temp > 35 ? 5 : 0)), 8, 90);
+    const beneficial = clamp(Math.round(sim.quality * 0.58 + hygiene * 0.22 + drying * 3 - Math.max(0, temp - 37) * 2), 5, 99);
+    const harmful = clamp(Math.round(sim.risk * 0.82 + moisture * 0.18), 1, 99);
+    const umami = clamp(Math.round(sim.quality * 0.7 + (temp >= 28 && temp <= 33 ? 10 : 0) + drying * 2 - Math.abs(salt - 55) * 0.35), 0, 100);
+    const preservation = clamp(Math.round(salt * 0.45 + hygiene * 0.2 + drying * 6 + (temp >= 28 && temp <= 33 ? 8 : 0) - Math.max(0, temp - 38) * 3), 0, 100);
+    const balance = clamp(Math.round((100 - sim.risk) * 0.45 + sim.quality * 0.55), 0, 100);
+    const readiness = clamp(Math.round((beneficial + umami + balance + preservation - harmful) / 3), 0, 100);
+
+    let stage: "Unsafe" | "Early" | "Optimal" | "Overactive";
+    if (harmful >= 70) stage = "Unsafe";
+    else if (sim.activity === "Fast" && temp > 36) stage = "Overactive";
+    else if (readiness >= 68 && moisture <= 45) stage = "Optimal";
+    else stage = "Early";
+
+    return { moisture, beneficial, harmful, umami, preservation, balance, readiness, stage };
+  }, [drying, salt, hygiene, temp, sim]);
+
+  const simulationDirty = !!(ran && lastRunConfig && (
+    lastRunConfig.salt !== salt ||
+    lastRunConfig.drying !== drying ||
+    lastRunConfig.hygiene !== hygiene ||
+    lastRunConfig.temp !== temp
+  ));
+
+  const insight = useMemo(() => {
+    const stageLabels = {
+      Unsafe: isId ? "Rentan tercemar" : "High contamination risk",
+      Early: isId ? "Fermentasi belum stabil" : "Fermentation still unstable",
+      Optimal: isId ? "Fermentasi matang dan stabil" : "Balanced and stable fermentation",
+      Overactive: isId ? "Fermentasi terlalu agresif" : "Fermentation is too aggressive",
+    } as const;
+
+    let body = isId
+      ? "Kondisi saat ini mulai membentuk kualitas terasi, tetapi masih perlu pemantauan."
+      : "The current condition is shaping terasi quality, but it still needs monitoring.";
+    let recommendation = isId
+      ? "Jaga kebersihan, garam, dan suhu tetap seimbang agar fermentasi aman."
+      : "Keep hygiene, salt, and temperature balanced for safer fermentation.";
+
+    if (liveMetrics.stage === "Unsafe") {
+      body = isId
+        ? "Kadar air dan risiko kontaminasi masih tinggi sehingga bakteri berbahaya lebih mudah berkembang."
+        : "Moisture and contamination risk remain high, so harmful bacteria can grow more easily.";
+      recommendation = isId
+        ? "Naikkan garam atau kebersihan, lalu tambah lama penjemuran sebelum menjalankan simulasi lagi."
+        : "Increase salt or hygiene, then extend drying time before running the simulation again.";
+    } else if (liveMetrics.stage === "Overactive") {
+      body = isId
+        ? "Suhu yang terlalu tinggi membuat fermentasi berjalan terlalu cepat dan mutu bisa turun."
+        : "Temperature is too high, making fermentation run too fast and lowering quality.";
+      recommendation = isId
+        ? "Turunkan suhu sedikit agar proses fermentasi kembali seimbang."
+        : "Lower the temperature slightly to bring fermentation back into balance.";
+    } else if (liveMetrics.stage === "Optimal") {
+      body = isId
+        ? "Kombinasi garam, penjemuran, kebersihan, dan suhu mendukung rasa umami sekaligus menekan pembusukan."
+        : "The combination of salt, drying, hygiene, and temperature supports umami while suppressing spoilage.";
+      recommendation = isId
+        ? "Pertahankan kombinasi ini atau bandingkan dengan satu perubahan kecil untuk melihat trade-off kualitas."
+        : "Keep this combination or compare it with one small change to observe quality trade-offs.";
+    }
+
+    return {
+      stageLabel: stageLabels[liveMetrics.stage],
+      body,
+      recommendation,
+    };
+  }, [isId, liveMetrics.stage]);
+
   // Visual element counts derived from simulation
   const goodCount = Math.max(1, Math.min(9, Math.round(2 + hygiene / 22 + (sim.qualityLevel === "High" ? 2 : 0))));
   const badCount = Math.max(0, Math.min(9, Math.round(sim.risk / 17)));
   const moistureCount = Math.max(0, Math.min(7, Math.round(7 - drying)));
   const saltCount = Math.max(0, Math.min(6, Math.round(salt / 18)));
+  const bubbleCount = Math.max(2, Math.min(10, Math.round(liveMetrics.readiness / 13 + (sim.activity === "Fast" ? 2 : 0))));
+  const shimmerCount = Math.max(1, Math.min(6, Math.round(liveMetrics.umami / 18)));
 
   const runSimulation = () => {
     setRan(true);
+    setLastRunConfig({ salt, drying, hygiene, temp });
     setHistory((prev) => [
       ...prev,
       {
@@ -109,7 +186,14 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
     ]);
   };
 
-  const resetSim = () => { setSalt(50); setDrying(4); setHygiene(70); setTemp(30); setRan(false); };
+  const resetSim = () => {
+    setSalt(50);
+    setDrying(4);
+    setHygiene(70);
+    setTemp(30);
+    setRan(false);
+    setLastRunConfig(null);
+  };
 
   const isStepValid = () => {
     if (currentStep === 0) return true;
@@ -149,6 +233,24 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
   const facts = isId
     ? ["Terasi dibuat dari udang rebon yang difermentasi.", "Fermentasi yang baik menghasilkan rasa umami yang khas.", "Kadar garam, penjemuran, kebersihan, dan suhu saling berpengaruh.", "Proses yang tidak baik dapat menyebabkan kontaminasi dan pembusukan."]
     : ["Terasi is made from fermented rebon shrimp.", "Good fermentation produces a distinctive umami taste.", "Salt, drying, hygiene, and temperature all interact.", "Poor processing can cause contamination and spoilage."];
+
+  const presets = [
+    {
+      key: "optimal",
+      label: isId ? "Stabil" : "Stable",
+      action: () => { setSalt(55); setDrying(4); setHygiene(85); setTemp(31); },
+    },
+    {
+      key: "risky",
+      label: isId ? "Berisiko" : "Risky",
+      action: () => { setSalt(25); setDrying(1); setHygiene(35); setTemp(34); },
+    },
+    {
+      key: "hot",
+      label: isId ? "Terlalu Panas" : "Too Hot",
+      action: () => { setSalt(50); setDrying(3); setHygiene(70); setTemp(40); },
+    },
+  ] as const;
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-sans overflow-hidden">
@@ -284,11 +386,29 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                       <stop offset="50%" stopColor="#ffffff" stopOpacity="0.05" />
                       <stop offset="100%" stopColor="#ffffff" stopOpacity="0.35" />
                     </linearGradient>
+                    <radialGradient id="heatGlow" cx="50%" cy="15%" r="60%">
+                      <stop offset="0%" stopColor="#f97316" stopOpacity={temp > 36 ? 0.4 : 0} />
+                      <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+                    </radialGradient>
                   </defs>
 
                   {/* Lid */}
                   <rect x="55" y="14" width="90" height="24" rx="7" fill="#c0392b" />
                   <rect x="62" y="34" width="76" height="10" rx="3" fill="#a93226" />
+                  <ellipse cx="100" cy="28" rx="62" ry="18" fill="url(#heatGlow)" />
+                  {temp > 36 && Array.from({ length: 3 }).map((_, i) => (
+                    <path
+                      key={`steam${i}`}
+                      d={`M${78 + i * 18} 20 C ${72 + i * 18} 10, ${88 + i * 18} 5, ${82 + i * 18} -6`}
+                      fill="none"
+                      stroke="#f8fafc"
+                      strokeOpacity="0.7"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <animate attributeName="stroke-opacity" values="0;0.8;0" dur={`${2 + i * 0.3}s`} repeatCount="indefinite" />
+                    </path>
+                  ))}
 
                   {/* Jar body */}
                   <path d="M52 48 Q52 44 58 44 L142 44 Q148 44 148 48 L148 236 Q148 246 138 246 L62 246 Q52 246 52 236 Z" fill="#eef2f5" stroke="#cbd5e1" strokeWidth="2" />
@@ -301,6 +421,9 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                     <rect x="56" y="70" width="88" height="176" fill="url(#terasiPaste)" />
                     {/* paste top surface */}
                     <ellipse cx="100" cy="72" rx="44" ry="6" fill="#8a5636" />
+                    <ellipse cx="100" cy="74" rx={40 - moistureCount} ry="4" fill="#9a6542" opacity="0.75">
+                      <animate attributeName="ry" values="4;6;4" dur="4s" repeatCount="indefinite" />
+                    </ellipse>
 
                     {/* Good bacteria (green rods) */}
                     {Array.from({ length: goodCount }).map((_, i) => {
@@ -347,6 +470,18 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                       );
                     })}
 
+                    {/* Fermentation bubbles */}
+                    {Array.from({ length: bubbleCount }).map((_, i) => {
+                      const x = 72 + (i * 19) % 58;
+                      const y = 216 - (i * 23) % 122;
+                      return (
+                        <circle key={`bubble${i}`} cx={x} cy={y} r={1.8 + (i % 3) * 0.45} fill="#f8fafc" opacity="0.55">
+                          <animate attributeName="cy" values={`${y};${y - 18};${y}`} dur={`${2.4 + (i % 4) * 0.4}s`} begin={`${i * 0.15}s`} repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0;0.65;0" dur={`${2.4 + (i % 4) * 0.4}s`} begin={`${i * 0.15}s`} repeatCount="indefinite" />
+                        </circle>
+                      );
+                    })}
+
                     {/* Salt crystals (white cubes) */}
                     {Array.from({ length: saltCount }).map((_, i) => {
                       const x = 70 + (i * 49) % 60;
@@ -357,6 +492,17 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                         </rect>
                       );
                     })}
+
+                    {/* Umami shimmer particles */}
+                    {Array.from({ length: shimmerCount }).map((_, i) => {
+                      const x = 64 + (i * 29) % 70;
+                      const y = 88 + (i * 34) % 132;
+                      return (
+                        <circle key={`spark${i}`} cx={x} cy={y} r="1.6" fill="#fde68a">
+                          <animate attributeName="opacity" values="0.2;1;0.2" dur={`${1.6 + (i % 3) * 0.4}s`} repeatCount="indefinite" />
+                        </circle>
+                      );
+                    })}
                   </g>
 
                   {/* Glass reflection overlay */}
@@ -365,19 +511,50 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                 </svg>
 
                 {/* Legend */}
-                <div className="space-y-2.5 text-[11px]">
+                <div className="space-y-2.5 text-[11px] min-w-[220px]">
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-400 border border-emerald-600" /><span className="text-foreground/75">{isId ? "Bakteri baik (fermentasi)" : "Good bacteria (fermentation)"}</span></div>
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500" /><span className="text-foreground/75">{isId ? "Bakteri berbahaya" : "Harmful bacteria"}</span></div>
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-sky-400" /><span className="text-foreground/75">{isId ? "Kelembapan (kadar air)" : "Moisture (water content)"}</span></div>
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-slate-100 border border-slate-300" /><span className="text-foreground/75">{isId ? "Kristal garam" : "Salt crystals"}</span></div>
                   <p className="text-[10px] text-muted-foreground pt-1 leading-snug">{isId ? "Amati bagaimana bakteri berbahaya bertambah saat garam & kebersihan turun." : "Watch harmful bacteria grow as salt & hygiene drop."}</p>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {[
+                      { label: isId ? "Kelembapan" : "Moisture", value: liveMetrics.moisture, tone: "bg-sky-500" },
+                      { label: isId ? "Umami" : "Umami", value: liveMetrics.umami, tone: "bg-violet-500" },
+                      { label: isId ? "Proteksi" : "Protection", value: liveMetrics.preservation, tone: "bg-emerald-500" },
+                      { label: isId ? "Kesiapan" : "Readiness", value: liveMetrics.readiness, tone: "bg-amber-500" },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl border border-border/50 bg-muted/20 p-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{item.label}</span>
+                          <span className="text-[10px] font-black text-foreground">{item.value}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/80 overflow-hidden border border-border/30">
+                          <div className={`h-full ${item.tone}`} style={{ width: `${item.value}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* ── CONTROLS ── */}
             <div className="bg-white p-5 rounded-2xl border border-border/50 shadow-sm space-y-5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{isId ? "Atur Variabel Produksi" : "Set Production Variables"}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{isId ? "Atur Variabel Produksi" : "Set Production Variables"}</p>
+                <div className="flex items-center gap-2">
+                  {presets.map((preset) => (
+                    <button
+                      key={preset.key}
+                      onClick={preset.action}
+                      className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-full border border-border/60 bg-muted/20 text-foreground/70 hover:bg-muted/50 transition-colors"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {([
                 { key: "salt", label: isId ? "Kadar Garam" : "Salt Level", value: salt, set: setSalt, min: 0, max: 100, step: 5, unit: "%", color: "bg-sky-500", hint: isId ? "Garam menghambat bakteri berbahaya." : "Salt inhibits harmful bacteria." },
                 { key: "drying", label: isId ? "Waktu Penjemuran" : "Drying Time", value: drying, set: setDrying, min: 0, max: 7, step: 1, unit: isId ? " hari" : " days", color: "bg-orange-500", hint: isId ? "Penjemuran mengurangi kadar air." : "Drying reduces water content." },
@@ -405,6 +582,13 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
                   <p className="text-[10px] text-muted-foreground px-1">{hint}</p>
                 </div>
               ))}
+              <div className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-primary/80">{isId ? "Status Langsung" : "Live Status"}</p>
+                  <p className="text-[12px] font-semibold text-foreground">{insight.stageLabel}</p>
+                </div>
+                <p className="text-[10px] text-right text-foreground/65 max-w-[240px]">{insight.body}</p>
+              </div>
               <button onClick={runSimulation} className="w-full py-3.5 bg-emerald-600 text-white text-[13px] font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md active:scale-[0.98] uppercase tracking-wider flex items-center justify-center gap-2">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                 {isId ? "Jalankan Simulasi" : "Run Simulation"}
@@ -413,31 +597,74 @@ const Unit2Pisa = ({ onExit }: Unit2PisaProps) => {
 
             {/* ── OUTPUTS ── */}
             {!ran ? (
-              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 text-center text-[12px] text-primary font-medium">
-                {isId ? "Klik \"Jalankan Simulasi\" untuk melihat hasilnya!" : "Click \"Run Simulation\" to see the results!"}
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 text-center text-[12px] text-primary font-medium space-y-2">
+                <p>{isId ? "Klik \"Jalankan Simulasi\" untuk melihat hasilnya!" : "Click \"Run Simulation\" to see the results!"}</p>
+                <p className="text-[11px] text-foreground/70">{insight.recommendation}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {/* Risk */}
-                <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
-                  <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Risiko Kontaminasi" : "Contamination Risk"}</div>
-                  <div className="text-[15px] font-black text-foreground mb-2">{levelText(sim.riskLevel)}</div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${levelColor(sim.riskLevel, true)}`} style={{ width: `${sim.risk}%` }} /></div>
-                  <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Rendah" : "Low"}</span><span>{isId ? "Tinggi" : "High"}</span></div>
+              <div className="space-y-3">
+                {simulationDirty && (
+                  <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">{isId ? "Parameter Berubah" : "Inputs Changed"}</p>
+                      <p className="text-[12px] text-amber-900/80">{isId ? "Visual sudah ikut berubah, tapi hasil kartu di bawah masih memakai run terakhir." : "The visuals already react, but the cards below still reflect the last run."}</p>
+                    </div>
+                    <button onClick={runSimulation} className="shrink-0 px-3 py-2 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-600 transition-colors">
+                      {isId ? "Run Lagi" : "Re-run"}
+                    </button>
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Risk */}
+                  <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
+                    <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Risiko Kontaminasi" : "Contamination Risk"}</div>
+                    <div className="text-[15px] font-black text-foreground mb-2">{levelText(sim.riskLevel)}</div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${levelColor(sim.riskLevel, true)}`} style={{ width: `${sim.risk}%` }} /></div>
+                    <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Rendah" : "Low"}</span><span>{isId ? "Tinggi" : "High"}</span></div>
+                  </div>
+                  {/* Quality */}
+                  <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
+                    <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Kualitas Terasi" : "Terasi Quality"}</div>
+                    <div className="text-[15px] font-black text-foreground mb-2">{levelText(sim.qualityLevel)}</div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${levelColor(sim.qualityLevel)}`} style={{ width: `${sim.quality}%` }} /></div>
+                    <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Kurang" : "Poor"}</span><span>{isId ? "Baik" : "Good"}</span></div>
+                  </div>
+                  {/* Activity */}
+                  <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
+                    <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Aktivitas Fermentasi" : "Fermentation Activity"}</div>
+                    <div className="text-[15px] font-black text-foreground mb-2">{isId ? trAct(sim.activity) : sim.activity}</div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${sim.activity === "Balanced" ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: sim.activity === "Slow" ? "30%" : sim.activity === "Balanced" ? "65%" : "100%" }} /></div>
+                    <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Lambat" : "Slow"}</span><span>{isId ? "Cepat" : "Fast"}</span></div>
+                  </div>
                 </div>
-                {/* Quality */}
-                <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
-                  <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Kualitas Terasi" : "Terasi Quality"}</div>
-                  <div className="text-[15px] font-black text-foreground mb-2">{levelText(sim.qualityLevel)}</div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${levelColor(sim.qualityLevel)}`} style={{ width: `${sim.quality}%` }} /></div>
-                  <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Kurang" : "Poor"}</span><span>{isId ? "Baik" : "Good"}</span></div>
-                </div>
-                {/* Activity */}
-                <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm text-center">
-                  <div className="text-[9px] font-black tracking-widest uppercase text-muted-foreground mb-2">{isId ? "Aktivitas Fermentasi" : "Fermentation Activity"}</div>
-                  <div className="text-[15px] font-black text-foreground mb-2">{isId ? trAct(sim.activity) : sim.activity}</div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full transition-all duration-700 ${sim.activity === "Balanced" ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: sim.activity === "Slow" ? "30%" : sim.activity === "Balanced" ? "65%" : "100%" }} /></div>
-                  <div className="flex justify-between text-[8px] text-muted-foreground mt-1 uppercase font-bold"><span>{isId ? "Lambat" : "Slow"}</span><span>{isId ? "Cepat" : "Fast"}</span></div>
+                <div className="bg-white rounded-2xl border border-border/50 p-4 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black tracking-widest uppercase text-muted-foreground">{isId ? "Catatan Fermentasi" : "Fermentation Note"}</p>
+                      <p className="text-[15px] font-black text-foreground">{insight.stageLabel}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{isId ? "Skor Kesiapan" : "Readiness Score"}</p>
+                      <p className="text-[18px] font-black text-primary">{liveMetrics.readiness}%</p>
+                    </div>
+                  </div>
+                  <p className="text-[12px] leading-relaxed text-foreground/70">{insight.body}</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: isId ? "Bakteri baik" : "Good bacteria", value: liveMetrics.beneficial, tone: "text-emerald-600" },
+                      { label: isId ? "Bakteri buruk" : "Harmful", value: liveMetrics.harmful, tone: "text-red-500" },
+                      { label: isId ? "Keseimbangan" : "Balance", value: liveMetrics.balance, tone: "text-sky-600" },
+                      { label: isId ? "Umami" : "Umami", value: liveMetrics.umami, tone: "text-violet-600" },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl bg-muted/25 border border-border/40 p-3 text-center">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                        <p className={`text-[16px] font-black ${item.tone}`}>{item.value}%</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[11px] text-emerald-900/80">
+                    {insight.recommendation}
+                  </div>
                 </div>
               </div>
             )}

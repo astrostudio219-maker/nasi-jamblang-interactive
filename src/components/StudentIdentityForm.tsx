@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { createLocalId } from "@/hooks/useExamSession";
 import { toast } from "sonner";
 
 interface StudentProfile {
@@ -50,7 +51,7 @@ export default function StudentIdentityForm({ onDone }: Props) {
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     const profile: StudentProfile = {
-      id: crypto.randomUUID(),
+      id: createLocalId("student"),
       name: form.name.trim(),
       class: form.class.trim(),
       school: form.school.trim(),
@@ -68,7 +69,7 @@ export default function StudentIdentityForm({ onDone }: Props) {
           .from('student_profiles')
           .insert({
             id: profile.id,
-            device_id: localStorage.getItem("exam_device_id") || crypto.randomUUID(),
+            device_id: localStorage.getItem("exam_device_id") || createLocalId("device"),
             name: profile.name,
             class: profile.class,
             school: profile.school,

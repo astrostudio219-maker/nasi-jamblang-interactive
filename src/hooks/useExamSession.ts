@@ -2,10 +2,18 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export function createLocalId(prefix: string): string {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function getDeviceId(): string {
   let id = localStorage.getItem("exam_device_id");
   if (!id) {
-    id = crypto.randomUUID();
+    id = createLocalId("device");
     localStorage.setItem("exam_device_id", id);
   }
   return id;
@@ -139,7 +147,7 @@ export function useExamSession({ unit, answers, enabled, studentId }: UseExamSes
   useEffect(() => {
     if (!enabled) return;
     const profile = getStudentProfile();
-    const sessionId = crypto.randomUUID();
+    const sessionId = createLocalId("session");
     sessionIdRef.current = sessionId;
 
     const session: LocalSession = {
@@ -221,7 +229,7 @@ export async function saveCompletedSession(unit: number, answers: Record<string,
   const deviceId = getDeviceId();
   const profile = (() => { try { return JSON.parse(localStorage.getItem("studentProfile") || "{}"); } catch { return {}; } })();
   const session: LocalSession = {
-    id: crypto.randomUUID(),
+    id: createLocalId("session"),
     device_id: deviceId,
     unit,
     answers,
