@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getUnitMeta } from "@/data/appContent";
 
 type LocalizedText = {
@@ -38,6 +38,7 @@ type SimulationConfig = {
 };
 
 const pickText = (isId: boolean, text: LocalizedText) => (isId ? text.id : text.en);
+const SIMULATION_STORAGE_KEY = "unit_simulation_choices_v3_";
 
 const simulationConfigs: Record<number, SimulationConfig> = {
   1: {
@@ -1350,6 +1351,14 @@ const getInitialSelections = (unit: number) => {
   }, {});
 };
 
+const getPresetSelections = (unit: number, optionIndex: 0 | 1 | 2) => {
+  const config = simulationConfigs[unit];
+  return config.controls.reduce<Record<string, string>>((acc, control) => {
+    acc[control.id] = control.options[Math.min(optionIndex, control.options.length - 1)].value;
+    return acc;
+  }, {});
+};
+
 type SharedProps = {
   unit: number;
   isId: boolean;
@@ -1367,7 +1376,7 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
   }, [unit, hasVideo]);
 
   return (
-    <div className="my-6 overflow-hidden rounded-3xl border border-border/50 bg-white shadow-sm">
+    <div className="my-6 overflow-hidden rounded-3xl border border-border/50 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
@@ -1382,9 +1391,9 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
             <button
               type="button"
               onClick={() => setView("video")}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
                 view === "video"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -1395,9 +1404,9 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
             <button
               type="button"
               onClick={() => setView("image")}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
                 view === "image"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -1408,19 +1417,19 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
       </div>
 
       <div className="bg-muted/20 p-4">
-        <div className="overflow-hidden rounded-2xl border border-border/40 bg-black/5">
+        <div className="group overflow-hidden rounded-2xl border border-border/40 bg-black/5">
           {view === "video" && hasVideo ? (
             <video
               src={meta.videoUrl}
               controls
               playsInline
-              className="aspect-video w-full bg-black object-cover"
+              className="aspect-video w-full bg-black object-cover transition-transform duration-500 group-hover:scale-[1.01]"
             />
           ) : hasImage ? (
             <img
               src={meta.imageUrl}
               alt={meta.subtitle}
-              className="aspect-video w-full object-cover"
+              className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             />
           ) : (
             <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -1429,11 +1438,29 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
           )}
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-white/80 px-4 py-3 text-xs text-foreground/75">
+          <div>
+            <p className="font-semibold text-foreground">{meta.subtitle}</p>
+            <p className="mt-1 text-muted-foreground">
+              {view === "video"
+                ? isId
+                  ? "Lihat proses atau suasana aslinya untuk menangkap konteks unit."
+                  : "Watch the real process or atmosphere to catch the unit context."
+                : isId
+                  ? "Perhatikan detail visualnya sebelum masuk ke simulasi."
+                  : "Notice the visual details before moving into the simulation."}
+            </p>
+          </div>
+          <span className="rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 font-medium text-primary">
+            {view === "video" ? (isId ? "Mode video" : "Video mode") : isId ? "Mode foto" : "Photo mode"}
+          </span>
+        </div>
+
         <div className="mt-4 flex flex-wrap gap-2">
           {config.facts.map((fact) => (
             <span
               key={fact.id}
-              className="rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-[11px] font-medium text-foreground/80"
+              className="rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-[11px] font-medium text-foreground/80 transition-colors hover:border-primary/30 hover:bg-primary/10"
             >
               {pickText(isId, fact)}
             </span>
@@ -1447,10 +1474,62 @@ export function UnitMediaShowcase({ unit, isId }: SharedProps) {
 export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
   const config = simulationConfigs[unit];
   const [selections, setSelections] = useState<Record<string, string>>(() => getInitialSelections(unit));
+  const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
+  const [lastChangedControl, setLastChangedControl] = useState<string | null>(null);
+  const [didInteract, setDidInteract] = useState(false);
+  const storageKey = `${SIMULATION_STORAGE_KEY}${unit}`;
 
   useEffect(() => {
-    setSelections(getInitialSelections(unit));
-  }, [unit]);
+    const fallback = getInitialSelections(unit);
+
+    if (typeof window === "undefined") {
+      setSelections(fallback);
+      setSaveState("idle");
+      setLastChangedControl(null);
+      setDidInteract(false);
+      return;
+    }
+
+    const saved = localStorage.getItem(storageKey);
+
+    if (!saved) {
+      setSelections(fallback);
+      setSaveState("idle");
+      setLastChangedControl(null);
+      setDidInteract(false);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as Record<string, string>;
+      const hydrated = { ...fallback };
+
+      config.controls.forEach((control) => {
+        const candidate = parsed[control.id];
+        if (control.options.some((option) => option.value === candidate)) {
+          hydrated[control.id] = candidate;
+        }
+      });
+
+      setSelections(hydrated);
+    } catch {
+      setSelections(fallback);
+    }
+
+    setSaveState("idle");
+    setLastChangedControl(null);
+    setDidInteract(false);
+  }, [config.controls, storageKey, unit]);
+
+  useEffect(() => {
+    if (!didInteract || typeof window === "undefined") return;
+
+    localStorage.setItem(storageKey, JSON.stringify(selections));
+    setSaveState("saved");
+
+    const timer = window.setTimeout(() => setSaveState("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [didInteract, selections, storageKey]);
 
   const selectedOptions = config.controls.map((control) => {
     return control.options.find((option) => option.value === selections[control.id]) ?? control.options[0];
@@ -1465,6 +1544,8 @@ export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
   const practicality = calculateMetric("practicality");
   const learning = calculateMetric("learning");
   const overall = Math.round((sustainability + practicality + learning) / 3);
+  const defaultSelections = getInitialSelections(unit);
+  const changedCount = config.controls.filter((control) => selections[control.id] !== defaultSelections[control.id]).length;
 
   const summary =
     overall >= 80
@@ -1486,11 +1567,44 @@ export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
           ? "Perlu dibenahi"
           : "Needs adjustment";
 
-  const metricLabels = [
-    { key: "sustainability", label: isId ? "Dampak lingkungan" : "Environmental impact", value: sustainability },
-    { key: "practicality", label: isId ? "Kepraktisan" : "Practicality", value: practicality },
-    { key: "learning", label: isId ? "Nilai pembelajaran" : "Learning value", value: learning },
-  ];
+  const metricLabels = useMemo(
+    () => [
+      { key: "sustainability", label: isId ? "Dampak lingkungan" : "Environmental impact", value: sustainability },
+      { key: "practicality", label: isId ? "Kepraktisan" : "Practicality", value: practicality },
+      { key: "learning", label: isId ? "Nilai pembelajaran" : "Learning value", value: learning },
+    ],
+    [isId, learning, practicality, sustainability],
+  );
+
+  const dominantMetric = metricLabels.reduce((best, current) => (current.value > best.value ? current : best));
+  const strategyTone =
+    dominantMetric.key === "sustainability"
+      ? isId
+        ? "Pilihanmu paling kuat di sisi keberlanjutan."
+        : "Your choices are strongest on sustainability."
+      : dominantMetric.key === "practicality"
+        ? isId
+          ? "Pilihanmu paling menonjol di sisi kepraktisan."
+          : "Your choices stand out most on practicality."
+        : isId
+          ? "Pilihanmu paling terasa sebagai bahan refleksi belajar."
+          : "Your choices feel strongest as a learning reflection.";
+
+  const handleSelect = (controlId: string, optionValue: string) => {
+    const control = config.controls.find((item) => item.id === controlId);
+    setSelections((prev) => ({
+      ...prev,
+      [controlId]: optionValue,
+    }));
+    setLastChangedControl(control ? pickText(isId, control.label) : null);
+    setDidInteract(true);
+  };
+
+  const applyPreset = (preset: 0 | 1) => {
+    setSelections(getPresetSelections(unit, preset));
+    setLastChangedControl(isId ? "Preset simulasi" : "Simulation preset");
+    setDidInteract(true);
+  };
 
   return (
     <div className="mb-6 overflow-hidden rounded-3xl border border-primary/10 bg-white shadow-sm">
@@ -1507,9 +1621,102 @@ export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
             {statusLabel}
           </div>
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-primary/15 bg-white/80 px-3 py-1.5 text-[11px] font-medium text-foreground/80">
+            {isId ? `${config.controls.length} keputusan aktif` : `${config.controls.length} active decisions`}
+          </span>
+          <span className="rounded-full border border-primary/15 bg-white/80 px-3 py-1.5 text-[11px] font-medium text-foreground/80">
+            {changedCount === 0
+              ? isId
+                ? "Masih di versi rekomendasi"
+                : "Still on the recommended mix"
+              : isId
+                ? `${changedCount} pilihan kamu ubah`
+                : `${changedCount} picks changed by you`}
+          </span>
+          <span
+            className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
+              saveState === "saved"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border border-primary/15 bg-white/80 text-foreground/70"
+            }`}
+          >
+            {saveState === "saved"
+              ? isId
+                ? "Tersimpan otomatis"
+                : "Auto-saved"
+              : lastChangedControl
+                ? isId
+                  ? `Terakhir diubah: ${lastChangedControl}`
+                  : `Last changed: ${lastChangedControl}`
+                : isId
+                  ? "Siap dieksplor"
+                  : "Ready to explore"}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-5 p-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              {isId ? "Arah utama" : "Main direction"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-foreground">{statusLabel}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{strategyTone}</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              {isId ? "Karakter simulasi" : "Simulation character"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              {overall >= 80
+                ? isId
+                  ? "Matang dan realistis"
+                  : "Mature and realistic"
+                : overall >= 60
+                  ? isId
+                    ? "Masih ada kompromi"
+                    : "Still some trade-offs"
+                  : isId
+                    ? "Butuh revisi halus"
+                    : "Needs a soft revision"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {isId
+                ? "Baca cepat arah keputusanmu sebelum melihat detail per opsi."
+                : "Use this quick read before diving into each option detail."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              {isId ? "Mode cepat" : "Quick mode"}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => applyPreset(0)}
+                className="rounded-full border border-border/60 bg-white px-3 py-1.5 text-[11px] font-medium text-foreground/80 transition-all hover:border-primary/30 hover:text-foreground"
+              >
+                {isId ? "Versi rekomendasi" : "Recommended"}
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset(1)}
+                className="rounded-full border border-border/60 bg-white px-3 py-1.5 text-[11px] font-medium text-foreground/80 transition-all hover:border-primary/30 hover:text-foreground"
+              >
+                {isId ? "Versi kompromi" : "Balanced mix"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {isId
+                ? "Tombol ini bantu ngebandingin dua rasa keputusan tanpa reset manual satu-satu."
+                : "These buttons help compare two decision moods without manually resetting each choice."}
+            </p>
+          </div>
+        </div>
+
         {config.controls.map((control) => (
           <div key={control.id}>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -1528,25 +1735,24 @@ export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() =>
-                      setSelections((prev) => ({
-                        ...prev,
-                        [control.id]: option.value,
-                      }))
-                    }
-                    className={`rounded-2xl border p-3 text-left transition-all ${
+                    onClick={() => handleSelect(control.id, option.value)}
+                    className={`rounded-2xl border p-3 text-left transition-all duration-200 ${
                       active
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-border/60 hover:border-primary/30 hover:bg-muted/30"
+                        ? "border-primary bg-primary/5 shadow-sm shadow-primary/10"
+                        : "border-border/60 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted/30"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-sm font-medium text-foreground">{pickText(isId, option.label)}</span>
                       <span
-                        className={`mt-0.5 h-4 w-4 rounded-full border ${
-                          active ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold transition-all ${
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-muted-foreground/30 text-transparent"
                         }`}
-                      />
+                      >
+                        ✓
+                      </span>
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{pickText(isId, option.hint)}</p>
                   </button>
@@ -1557,33 +1763,58 @@ export default function UnitSimulationPanel({ unit, isId }: SharedProps) {
         ))}
 
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-foreground">{isId ? "Ringkasan hasil" : "Result summary"}</p>
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-              {overall}%
-            </span>
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">{overall}%</span>
           </div>
 
-          <div className="space-y-3">
-            {metricLabels.map((metric) => (
-              <div key={metric.key}>
-                <div className="mb-1 flex items-center justify-between text-[11px]">
-                  <span className="font-medium text-foreground/80">{metric.label}</span>
-                  <span className="text-muted-foreground">{metric.value}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${metric.value}%` }} />
+          <div className="grid gap-4 md:grid-cols-[140px,1fr]">
+            <div className="flex items-center justify-center">
+              <div
+                className="relative flex h-28 w-28 items-center justify-center rounded-full"
+                style={{
+                  background: `conic-gradient(hsl(var(--primary)) ${overall * 3.6}deg, hsl(var(--muted)) 0deg)`,
+                }}
+              >
+                <div className="flex h-[94px] w-[94px] flex-col items-center justify-center rounded-full bg-white text-center shadow-sm">
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {isId ? "Skor" : "Score"}
+                  </span>
+                  <span className="text-2xl font-semibold text-foreground">{overall}%</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-3">
+              {metricLabels.map((metric) => (
+                <div key={metric.key}>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-foreground/80">{metric.label}</span>
+                    <span className="text-muted-foreground">{metric.value}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${metric.value}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <p className="mt-4 text-sm leading-relaxed text-foreground/80">{pickText(isId, summary)}</p>
 
-          <div className="mt-4 space-y-2">
-            {selectedOptions.map((option) => (
-              <div key={option.value} className="rounded-xl bg-white px-3 py-2 text-xs text-foreground/75">
-                {pickText(isId, option.hint)}
+          <div className="mt-4 grid gap-2">
+            {config.controls.map((control, index) => (
+              <div
+                key={control.id}
+                className="flex items-start justify-between gap-3 rounded-xl bg-white px-3 py-2.5 text-xs text-foreground/75"
+              >
+                <div>
+                  <p className="font-semibold text-foreground">{pickText(isId, control.label)}</p>
+                  <p className="mt-1 text-muted-foreground">{pickText(isId, selectedOptions[index].hint)}</p>
+                </div>
+                <span className="rounded-full bg-primary/5 px-2.5 py-1 font-medium text-primary">
+                  {pickText(isId, selectedOptions[index].label)}
+                </span>
               </div>
             ))}
           </div>
