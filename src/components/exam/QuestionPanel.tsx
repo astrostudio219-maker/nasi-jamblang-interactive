@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { ExamQuestion } from "@/data/examQuestions";
 import { useLanguage } from "@/contexts/LanguageContext";
+import heroJamblang from "@/assets/hero-jamblang.jpg";
 
 interface QuestionPanelProps {
   question: ExamQuestion;
@@ -170,6 +171,40 @@ const QuestionPanel = ({
   };
 
   const options = getOptions();
+  const selectedFeedback = useMemo(() => {
+    const explanation = isId ? question.explanationIdn : question.explanation;
+
+    if (question.type === "mcq" && selectedMCQ) {
+      const isCorrect = selectedMCQ === question.correct;
+      return {
+        visible: true,
+        tone: isCorrect ? "emerald" : "amber",
+        title: isCorrect
+          ? (isId ? "Bagus, pilihanmu sudah tepat." : "Nice, your choice is on target.")
+          : (isId ? "Sudah mencoba, tapi konsep utamanya perlu dibetulkan." : "Good try, but the main idea needs a small correction."),
+        body: explanation || (isCorrect
+          ? (isId ? "Pilihan ini paling sesuai dengan data pada stimulus." : "This option best matches the evidence in the stimulus.")
+          : (isId ? "Coba cocokkan lagi jawabanmu dengan data di stimulus dan hasil simulasi." : "Try matching your answer again with the stimulus data and the simulation result.")),
+      };
+    }
+
+    if (question.type === "checkbox" && selectedCheckbox.length > 0) {
+      const correctAnswers = Array.isArray(question.correct) ? question.correct : [];
+      const isCorrect = selectedCheckbox.length === correctAnswers.length && selectedCheckbox.every((item) => correctAnswers.includes(item));
+      return {
+        visible: true,
+        tone: isCorrect ? "emerald" : "amber",
+        title: isCorrect
+          ? (isId ? "Pilihanmu sudah lengkap." : "Your selection is complete.")
+          : (isId ? "Masih ada opsi yang perlu dicek lagi." : "There are still options worth checking again."),
+        body: explanation || (isCorrect
+          ? (isId ? "Semua opsi yang kamu pilih konsisten dengan informasi pada soal." : "All selected options are consistent with the information in the question.")
+          : (isId ? "Bandingkan lagi setiap opsi dengan data stimulus sebelum lanjut." : "Compare each option with the stimulus data before moving on.")),
+      };
+    }
+
+    return { visible: false, tone: "slate", title: "", body: "" };
+  }, [isId, question, selectedCheckbox, selectedMCQ]);
 
   const handleMCQ = (option: string) => {
     onAnswer(question.id, option);
@@ -565,6 +600,11 @@ const QuestionPanel = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* UNIT 1 SIMULATION */}
+          {unit === 1 && (question.id === 1 || question.id === 2) && (
+            <Unit1Simulation isId={isId} />
           )}
 
           {/* Dynamic Warning for Question 2 - removed */}
@@ -1131,6 +1171,52 @@ const QuestionPanel = ({
               </div>
             )}
 
+            {selectedFeedback.visible && (
+              <div
+                className={`rounded-xl border px-4 py-3.5 shadow-sm ${
+                  selectedFeedback.tone === "emerald"
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-amber-50 border-amber-200"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
+                      selectedFeedback.tone === "emerald"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {selectedFeedback.tone === "emerald" ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className={`text-[12px] font-semibold ${
+                        selectedFeedback.tone === "emerald" ? "text-emerald-800" : "text-amber-800"
+                      }`}
+                    >
+                      {selectedFeedback.title}
+                    </p>
+                    <p
+                      className={`text-[11px] leading-relaxed mt-1 ${
+                        selectedFeedback.tone === "emerald" ? "text-emerald-900/80" : "text-amber-900/80"
+                      }`}
+                    >
+                      {selectedFeedback.body}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Open-ended */}
             {question.type === "open" && (() => {
               const text = (answer as string) || "";
@@ -1210,6 +1296,402 @@ const QuestionPanel = ({
 };
 
 export default QuestionPanel;
+
+function Unit1Simulation({ isId }: { isId: boolean }) {
+  const [packagingType, setPackagingType] = React.useState<"teak" | "paper" | "plastic">("teak");
+  const [storageHours, setStorageHours] = React.useState(8);
+  const [humidity, setHumidity] = React.useState(58);
+  const [priceFocus, setPriceFocus] = React.useState(62);
+  const [selectedPhoto, setSelectedPhoto] = React.useState(1);
+  const [u1Runs, setU1Runs] = React.useState<Array<{
+    no: number;
+    packaging: string;
+    hours: number;
+    humidity: number;
+    priceFocus: number;
+    freshness: number;
+    eco: number;
+    practicality: number;
+    satisfaction: number;
+  }>>([]);
+
+  const gallery = [
+    {
+      id: 1,
+      src: "/images/unit1.png",
+      alt: isId ? "Daun jati segar" : "Fresh teak leaf",
+      title: isId ? "Daun jati segar" : "Fresh teak leaf",
+      note: isId ? "Menunjukkan ukuran daun yang lebar dan serat yang kuat." : "Shows the leaf size and strong vein structure.",
+    },
+    {
+      id: 2,
+      src: "/images/unit1b.png",
+      alt: isId ? "Bungkusan nasi jamblang" : "Wrapped nasi jamblang",
+      title: isId ? "Bungkusan tradisional" : "Traditional wrap",
+      note: isId ? "Bentuk lipatan alami menjaga nasi tetap rapi dan mudah dibawa." : "The fold keeps the rice compact and easy to carry.",
+    },
+    {
+      id: 3,
+      src: heroJamblang,
+      alt: isId ? "Sajian nasi jamblang" : "Nasi jamblang serving",
+      title: isId ? "Sajian nasi jamblang" : "Nasi jamblang dish",
+      note: isId ? "Visual makanan jadi membantu menghubungkan kemasan dengan pengalaman makan." : "Connects the wrapper with the final dining experience.",
+    },
+  ] as const;
+
+  const activePhoto = gallery.find((item) => item.id === selectedPhoto) ?? gallery[0];
+
+  const metrics = React.useMemo(() => {
+    const packagingBase = {
+      teak: { freshness: 84, eco: 93, practicality: 74, label: isId ? "Daun jati" : "Teak leaf", days: isId ? "14-28 hari" : "14-28 days" },
+      paper: { freshness: 63, eco: 68, practicality: 70, label: isId ? "Kertas" : "Paper", days: isId ? "60-150 hari" : "60-150 days" },
+      plastic: { freshness: 88, eco: 22, practicality: 89, label: isId ? "Plastik" : "Plastic", days: isId ? "100-500 tahun" : "100-500 years" },
+    } as const;
+
+    const base = packagingBase[packagingType];
+    const humidityPenalty = humidity > 70 ? (humidity - 70) * 0.8 : humidity < 45 ? (45 - humidity) * 0.25 : 0;
+    const storagePenalty = Math.max(0, storageHours - 6) * (packagingType === "plastic" ? 1.2 : packagingType === "paper" ? 2.8 : 1.8);
+    const freshness = Math.round(Math.max(10, Math.min(100, base.freshness - humidityPenalty - storagePenalty)));
+    const eco = Math.round(Math.max(5, Math.min(100, base.eco - (storageHours > 14 && packagingType === "plastic" ? 6 : 0))));
+    const practicality = Math.round(Math.max(15, Math.min(100, base.practicality + priceFocus * 0.12 - (packagingType === "teak" ? 5 : 0))));
+    const satisfaction = Math.round(Math.max(10, Math.min(100,
+      freshness * 0.35 + eco * 0.25 + practicality * 0.25 + (100 - Math.abs(priceFocus - (packagingType === "plastic" ? 80 : packagingType === "teak" ? 60 : 55))) * 0.15
+    )));
+    const recommendation =
+      packagingType === "teak"
+        ? (isId
+            ? "Daun jati paling seimbang untuk menjaga kualitas nasi sambil tetap ramah lingkungan."
+            : "Teak leaf gives the best balance between food quality and environmental impact.")
+        : packagingType === "plastic"
+          ? (isId
+              ? "Plastik memang praktis, tetapi jejak limbahnya jauh lebih besar saat dipakai terus-menerus."
+              : "Plastic is practical, but its waste footprint becomes much larger over time.")
+          : (isId
+              ? "Kertas cukup praktis, tetapi daya tahan dan perlindungan makanannya tidak sekuat daun jati."
+              : "Paper is fairly practical, but it protects food less effectively than teak leaves.");
+
+    return {
+      freshness,
+      eco,
+      practicality,
+      satisfaction,
+      label: base.label,
+      decomposition: base.days,
+      recommendation,
+    };
+  }, [humidity, isId, packagingType, priceFocus, storageHours]);
+
+  const runUnit1 = () => {
+    setU1Runs((prev) => [
+      ...prev,
+      {
+        no: prev.length + 1,
+        packaging: metrics.label,
+        hours: storageHours,
+        humidity,
+        priceFocus,
+        freshness: metrics.freshness,
+        eco: metrics.eco,
+        practicality: metrics.practicality,
+        satisfaction: metrics.satisfaction,
+      },
+    ]);
+  };
+
+  const presets = [
+    {
+      key: "balanced",
+      label: isId ? "Seimbang" : "Balanced",
+      action: () => { setPackagingType("teak"); setStorageHours(8); setHumidity(58); setPriceFocus(62); },
+    },
+    {
+      key: "cheap",
+      label: isId ? "Praktis Murah" : "Cheap Practical",
+      action: () => { setPackagingType("plastic"); setStorageHours(12); setHumidity(65); setPriceFocus(88); },
+    },
+    {
+      key: "eco",
+      label: isId ? "Eco Maks" : "Max Eco",
+      action: () => { setPackagingType("teak"); setStorageHours(6); setHumidity(50); setPriceFocus(54); },
+    },
+  ] as const;
+
+  return (
+    <div className="mb-5 space-y-4">
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { label: isId ? "Kesegaran" : "Freshness", value: metrics.freshness },
+          { label: isId ? "Skor Eco" : "Eco Score", value: metrics.eco },
+          { label: isId ? "Praktikalitas" : "Practicality", value: metrics.practicality },
+          { label: isId ? "Kepuasan" : "Satisfaction", value: metrics.satisfaction },
+        ].map((item) => (
+          <div key={item.label} className="bg-white rounded-xl border border-border/50 p-3 shadow-sm text-center">
+            <div className="text-[10px] text-muted-foreground mb-1 leading-tight">{item.label}</div>
+            <div className="text-2xl font-bold text-foreground leading-none">{item.value}</div>
+            <div className={`text-[10px] mt-1 font-semibold px-2 py-0.5 rounded-full inline-block text-white ${item.value >= 75 ? "bg-gray-900" : item.value >= 50 ? "bg-gray-600" : "bg-gray-400"}`}>
+              {item.value >= 75 ? (isId ? "Tinggi" : "High") : item.value >= 50 ? (isId ? "Sedang" : "Medium") : (isId ? "Rendah" : "Low")}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-xl border border-border/50 p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div>
+            <div className="text-[13px] font-semibold text-foreground">{isId ? "Galeri Unit 1" : "Unit 1 Gallery"}</div>
+            <p className="text-[11px] text-muted-foreground">{isId ? "Klik foto untuk melihat konteks bahan, bungkus, dan sajian." : "Tap a photo to compare material, wrapping, and final serving."}</p>
+          </div>
+          <div className="flex gap-2">
+            {presets.map((preset) => (
+              <button
+                key={preset.key}
+                onClick={preset.action}
+                className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-full border border-border/60 bg-muted/20 text-foreground/70 hover:bg-muted/50 transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {gallery.map((image) => (
+            <button
+              key={image.id}
+              onClick={() => setSelectedPhoto(image.id)}
+              className={`text-left rounded-xl overflow-hidden border transition-all ${
+                selectedPhoto === image.id
+                  ? "border-primary/40 shadow-md ring-2 ring-primary/10"
+                  : "border-border/40 hover:border-primary/20"
+              }`}
+            >
+              <img src={image.src} alt={image.alt} className="w-full h-28 object-cover" />
+              <div className="p-2.5 bg-white">
+                <p className="text-[11px] font-semibold text-foreground">{image.title}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{image.note}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 rounded-xl border border-primary/15 bg-primary/5 p-3 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">{isId ? "Foto Aktif" : "Active Photo"}</p>
+            <p className="text-[13px] font-semibold text-foreground">{activePhoto.title}</p>
+            <p className="text-[11px] text-foreground/70 mt-1 max-w-xl">{activePhoto.note}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{isId ? "Bungkus" : "Wrapper"}</p>
+            <p className="text-[12px] font-semibold text-foreground">{metrics.label}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <div className="flex-1 bg-white rounded-xl border border-border/50 p-5 shadow-sm">
+          <div className="text-[13px] font-semibold text-foreground mb-4">{isId ? "Kontrol Simulasi" : "Simulation Controls"}</div>
+          <div className="space-y-5">
+            <div>
+              <div className="text-[13px] font-medium text-foreground mb-2">{isId ? "Jenis Kemasan" : "Packaging Type"}</div>
+              <div className="flex gap-4">
+                {(["teak", "paper", "plastic"] as const).map((type) => (
+                  <label key={type} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="u1-packaging"
+                      value={type}
+                      checked={packagingType === type}
+                      onChange={() => setPackagingType(type)}
+                      className="accent-primary w-4 h-4"
+                    />
+                    <span className="text-[13px]">
+                      {type === "teak" ? (isId ? "Daun jati" : "Teak leaf") : type === "paper" ? (isId ? "Kertas" : "Paper") : (isId ? "Plastik" : "Plastic")}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[13px] text-foreground mb-2">{isId ? "Lama disimpan (jam)" : "Storage time (hours)"}: <span className="font-semibold">{storageHours}</span></div>
+              <input
+                type="range"
+                min={2}
+                max={24}
+                step={2}
+                value={storageHours}
+                onChange={(e) => setStorageHours(Number(e.target.value))}
+                className="sim-slider"
+                style={{ background: `linear-gradient(to right, #111827 ${((storageHours - 2) / 22) * 100}%, #e5e7eb ${((storageHours - 2) / 22) * 100}%)` }}
+              />
+            </div>
+
+            <div>
+              <div className="text-[13px] text-foreground mb-2">{isId ? "Kelembapan lingkungan (%)" : "Ambient humidity (%)"}: <span className="font-semibold">{humidity}</span></div>
+              <input
+                type="range"
+                min={30}
+                max={90}
+                step={1}
+                value={humidity}
+                onChange={(e) => setHumidity(Number(e.target.value))}
+                className="sim-slider"
+                style={{ background: `linear-gradient(to right, #111827 ${((humidity - 30) / 60) * 100}%, #e5e7eb ${((humidity - 30) / 60) * 100}%)` }}
+              />
+            </div>
+
+            <div>
+              <div className="text-[13px] text-foreground mb-2">{isId ? "Sensitivitas harga pelanggan (%)" : "Customer price sensitivity (%)"}: <span className="font-semibold">{priceFocus}</span></div>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                step={1}
+                value={priceFocus}
+                onChange={(e) => setPriceFocus(Number(e.target.value))}
+                className="sim-slider"
+                style={{ background: `linear-gradient(to right, #111827 ${((priceFocus - 20) / 80) * 100}%, #e5e7eb ${((priceFocus - 20) / 80) * 100}%)` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700">{isId ? "Insight Cepat" : "Quick Insight"}</p>
+            <p className="text-[12px] font-semibold text-foreground mt-1">{metrics.recommendation}</p>
+            <p className="text-[11px] text-foreground/70 mt-1">
+              {isId
+                ? `Perkiraan waktu terurai: ${metrics.decomposition}. Kombinasi sekarang paling terasa pada skor kesegaran ${metrics.freshness} dan skor eco ${metrics.eco}.`
+                : `Estimated decomposition time: ${metrics.decomposition}. The current combination mainly affects freshness ${metrics.freshness} and eco score ${metrics.eco}.`}
+            </p>
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <button onClick={runUnit1} className="px-5 py-2 bg-gray-900 text-white text-[13px] font-semibold rounded-full hover:opacity-90">
+              {isId ? "Simpan Run" : "Save Run"}
+            </button>
+            <button onClick={() => setU1Runs([])} className="px-4 py-2 text-[12px] text-foreground hover:text-primary">
+              {isId ? "Hapus Data" : "Clear Data"}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 w-52">
+          <div className="bg-white rounded-xl border border-border/50 p-2 shadow-sm flex items-center justify-center">
+            <svg viewBox="0 0 180 230" width="156" height="198" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="plateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fafaf9" />
+                  <stop offset="100%" stopColor="#e7e5e4" />
+                </linearGradient>
+                <linearGradient id="riceGradU1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#f3f4f6" />
+                </linearGradient>
+                <linearGradient id="leafGradU1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor={packagingType === "teak" ? "#9ae6b4" : packagingType === "paper" ? "#f5e6c8" : "#bfdbfe"} />
+                  <stop offset="100%" stopColor={packagingType === "teak" ? "#2f855a" : packagingType === "paper" ? "#c08457" : "#2563eb"} />
+                </linearGradient>
+              </defs>
+
+              <ellipse cx="90" cy="196" rx="56" ry="12" fill="url(#plateGrad)" />
+              <path d="M48 78 Q90 40 132 78 L124 164 Q90 186 56 164 Z" fill="url(#leafGradU1)" opacity={packagingType === "plastic" ? 0.85 : 0.95} />
+              {packagingType === "teak" && (
+                <>
+                  <line x1="90" y1="54" x2="90" y2="168" stroke="#14532d" strokeWidth="2" opacity="0.55" />
+                  <line x1="90" y1="88" x2="58" y2="70" stroke="#14532d" strokeWidth="1.2" opacity="0.4" />
+                  <line x1="90" y1="102" x2="124" y2="84" stroke="#14532d" strokeWidth="1.2" opacity="0.4" />
+                  <line x1="90" y1="118" x2="60" y2="108" stroke="#14532d" strokeWidth="1.2" opacity="0.35" />
+                </>
+              )}
+              <ellipse cx="92" cy="118" rx="28" ry="24" fill="url(#riceGradU1)" />
+              <ellipse cx="92" cy="118" rx="23" ry="18" fill="#fafafa" />
+              {[70, 84, 98, 112].map((x, index) => (
+                <circle key={x} cx={x} cy={126 - index * 3} r="3.2" fill="#f8fafc" />
+              ))}
+              <rect x="66" y="152" width={Math.max(18, metrics.freshness * 0.5)} height="8" rx="4" fill={metrics.freshness >= 70 ? "#16a34a" : metrics.freshness >= 50 ? "#d97706" : "#dc2626"} opacity="0.9" />
+              <circle cx="144" cy="52" r="14" fill="#fde68a" />
+              <text x="144" y="56" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#92400e" fontFamily="sans-serif">{storageHours}h</text>
+              {[0, 1, 2].map((i) => (
+                <circle key={i} cx={34 + i * 10} cy={62 + i * 12} r={4 + i} fill="#93c5fd" opacity={humidity > 68 ? 0.6 : 0.25} />
+              ))}
+              <text x="18" y="54" fontSize="8" fill="#475569" fontFamily="sans-serif">{isId ? "Udara" : "Air"}</text>
+              <text x="18" y="64" fontSize="8" fill="#475569" fontFamily="sans-serif">{humidity}%</text>
+              <text x="90" y="208" textAnchor="middle" fontSize="9" fill="#334155" fontFamily="sans-serif">{metrics.label}</text>
+            </svg>
+          </div>
+
+          <div className="bg-white rounded-xl border border-border/50 p-3 shadow-sm flex flex-col justify-between flex-1">
+            <div className="text-[9px] text-muted-foreground text-right mb-1">100</div>
+            <div className="flex items-end gap-1 h-24">
+              {[
+                { v: metrics.freshness, label: "Fr" },
+                { v: metrics.eco, label: "Eco" },
+                { v: metrics.practicality, label: "Pr" },
+                { v: metrics.satisfaction, label: "Sat" },
+              ].map(({ v, label }) => (
+                <div key={label} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div className="w-full bg-gray-900 rounded-sm transition-all duration-300" style={{ height: `${v}%` }} />
+                </div>
+              ))}
+            </div>
+            <div className="text-[9px] text-muted-foreground mb-1">0</div>
+            <div className="flex gap-0.5 mt-1">
+              {[{ label: "Fresh" }, { label: "Eco" }, { label: "Prac." }, { label: "Satis." }].map(({ label }) => (
+                <div key={label} className="flex-1 text-center text-[7px] text-muted-foreground leading-tight">{label}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[13px] font-semibold text-foreground mb-3">{isId ? "Tabel Hasil Simulasi" : "Simulation Results Table"}</div>
+        <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="border-b border-border/50">
+                {[
+                  "No",
+                  isId ? "Kemasan" : "Packaging",
+                  isId ? "Simpan (jam)" : "Store (h)",
+                  isId ? "Lembap %" : "Humidity %",
+                  isId ? "Harga %" : "Price %",
+                  isId ? "Segar" : "Freshness",
+                  isId ? "Eco" : "Eco",
+                  isId ? "Praktis" : "Practicality",
+                  isId ? "Puas" : "Satisfaction",
+                ].map((h) => (
+                  <th key={h} className="p-2 text-left font-semibold text-foreground whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {u1Runs.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-3 text-center text-muted-foreground text-[11px]">
+                    {isId ? "Belum ada data run. Coba bandingkan daun jati, kertas, dan plastik." : "No saved runs yet. Try comparing teak leaf, paper, and plastic."}
+                  </td>
+                </tr>
+              ) : u1Runs.map((row) => (
+                <tr key={row.no} className="border-t border-border/30 hover:bg-muted/20">
+                  <td className="p-2">{row.no}</td>
+                  <td className="p-2">{row.packaging}</td>
+                  <td className="p-2">{row.hours}</td>
+                  <td className="p-2">{row.humidity}</td>
+                  <td className="p-2">{row.priceFocus}</td>
+                  <td className="p-2">{row.freshness}</td>
+                  <td className="p-2">{row.eco}</td>
+                  <td className="p-2">{row.practicality}</td>
+                  <td className="p-2">{row.satisfaction}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Unit5Simulation({ isId }: { isId: boolean }) {
   const [fermTime, setFermTime] = React.useState(48);
