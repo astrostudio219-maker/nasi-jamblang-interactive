@@ -289,6 +289,14 @@ const Quiz = () => {
   }
 
   // ── EXAM SCREEN ──
+  if (selectedUnit === 2) {
+    return (
+      <div className="h-screen overflow-hidden">
+        <Unit2Pisa onExit={() => setScreen("select")} studentId={studentProfile?.id} />
+      </div>
+    );
+  }
+
   if (selectedUnit === 8) {
     return (
       <div className="h-screen overflow-hidden">
