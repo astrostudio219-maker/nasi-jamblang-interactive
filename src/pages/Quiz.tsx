@@ -10,6 +10,7 @@ import { getAllLocalSessions } from "@/hooks/useExamSession";
 import ExamToolbar from "@/components/exam/ExamToolbar";
 import StimulusPanel from "@/components/exam/StimulusPanel";
 import QuestionPanel from "@/components/exam/QuestionPanel";
+import Unit2Pisa from "@/components/exam/Unit2Pisa";
 import Unit8Pisa from "@/components/exam/Unit8Pisa";
 import Unit9Pisa from "@/components/exam/Unit9Pisa";
 import Unit10Pisa from "@/components/exam/Unit10Pisa";
